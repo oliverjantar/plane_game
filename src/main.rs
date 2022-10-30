@@ -47,6 +47,18 @@ impl Game {
         }
 
         self.player_state.position += Self::vec2_from_angle(self.player_state.rotation) * SPEED;
+
+        if self.player_state.position.x > screen_width() {
+            self.player_state.position.x = -self.texture.width();
+        } else if self.player_state.position.x < -self.texture.width() {
+            self.player_state.position.x = screen_width();
+        }
+
+        if self.player_state.position.y > screen_height() {
+            self.player_state.position.y = -self.texture.height();
+        } else if self.player_state.position.y < -self.texture.height() {
+            self.player_state.position.y = screen_height();
+        }
     }
 
     pub fn draw(&self) {
