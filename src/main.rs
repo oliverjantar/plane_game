@@ -2,7 +2,7 @@ use macroquad::prelude::*;
 
 #[macroquad::main("game")]
 async fn main() {
-    let mut game = Game::new();
+    let mut game = Game::new().await;
     loop {
         game.update();
         game.draw();
@@ -16,16 +16,19 @@ async fn main() {
 pub struct Game {
     pub quit: bool,
     pub player_state: PlayerState,
+    pub texture: Texture2D,
 }
 
 impl Game {
-    pub fn new() -> Self {
-        Game {
+    pub async fn new() -> Self {
+        let texture = load_texture("assets/plane.png").await.unwrap();
+        Self {
             quit: false,
             player_state: PlayerState {
                 position: Vec2::new(100f32, 100f32),
                 rotation: 0f32,
             },
+            texture,
         }
     }
     pub fn update(&mut self) {
@@ -49,14 +52,25 @@ impl Game {
     pub fn draw(&self) {
         clear_background(color_u8!(255, 255, 255, 255));
 
-        draw_poly_lines(
+        // draw_poly_lines(
+        //     self.player_state.position.x,
+        //     self.player_state.position.y,
+        //     3,
+        //     10.,
+        //     self.player_state.rotation * 180. / std::f32::consts::PI - 90.,
+        //     2.,
+        //     BLACK,
+        // );
+
+        draw_texture_ex(
+            self.texture,
             self.player_state.position.x,
             self.player_state.position.y,
-            3,
-            10.,
-            self.player_state.rotation * 180. / std::f32::consts::PI - 90.,
-            2.,
-            BLACK,
+            WHITE,
+            DrawTextureParams {
+                rotation: self.player_state.rotation,
+                ..Default::default()
+            },
         );
 
         Self::draw_box(Vec2::new(400f32, 200f32), Vec2::new(50f32, 20f32));
@@ -69,6 +83,7 @@ impl Game {
         draw_rectangle(upper_left.x, upper_left.y, dimension.x, dimension.y, BLACK);
     }
 
+    //calculates a directional vector using our current rotation angle value
     fn vec2_from_angle(angle: f32) -> Vec2 {
         let angle = angle - std::f32::consts::FRAC_PI_2;
         Vec2::new(angle.cos(), angle.sin())
