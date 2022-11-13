@@ -1,5 +1,6 @@
 use futures_util::{FutureExt, StreamExt};
 use messages::ServerMessage;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::{
@@ -10,6 +11,8 @@ use warp::{
 mod messages;
 
 type OutBoundChannel = mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>;
+
+static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
 
 #[tokio::main]
 async fn main() {
@@ -49,8 +52,11 @@ async fn user_connected(ws: WebSocket) {
     log::debug!("user disconnected: {}", my_id);
 }
 
-async fn send_msg(msg: ServerMessage) {
-    let buffer = serde_json::to_vec(&msg).unwrap();
+async fn send_msg(tx: &OutBoundChannel, msg: &ServerMessage) {
+    let buffer = serde_json::to_vec(msg).unwrap();
+
+    let msg = Message::binary(buffer);
+    tx.send(Ok(msg)).unwrap();
 }
 
 fn create_send_channel(
@@ -69,5 +75,10 @@ fn create_send_channel(
 }
 
 async fn send_welcome(out: &OutBoundChannel) -> usize {
-    unimplemented!()
+    let id = NEXT_USER_ID.fetch_add(1, Ordering::Relaxed);
+
+    let states = ServerMessage::Welcome(id);
+    send_msg(out, &states).await;
+
+    id
 }
