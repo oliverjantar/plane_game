@@ -1,6 +1,15 @@
+use futures_util::{FutureExt, StreamExt};
 use messages::ServerMessage;
-use warp::{ws::WebSocket, Filter};
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use warp::{
+    ws::{Message, WebSocket},
+    Filter,
+};
+
 mod messages;
+
+type OutBoundChannel = mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>;
 
 #[tokio::main]
 async fn main() {
@@ -18,9 +27,47 @@ async fn main() {
 }
 
 async fn user_connected(ws: WebSocket) {
-    unimplemented!();
+    let (ws_sender, mut ws_receiver) = ws.split();
+
+    let send_channel = create_send_channel(ws_sender);
+    let my_id = send_welcome(&send_channel).await;
+
+    log::debug!("new user conneted: {}", my_id);
+
+    while let Some(result) = ws_receiver.next().await {
+        let msg = match result {
+            Ok(msg) => msg,
+            Err(e) => {
+                log::warn!("websocket receive error: '{}'", e);
+                break;
+            }
+        };
+
+        log::debug!("user sent message: {:?}", msg);
+    }
+
+    log::debug!("user disconnected: {}", my_id);
 }
 
 async fn send_msg(msg: ServerMessage) {
     let buffer = serde_json::to_vec(&msg).unwrap();
+}
+
+fn create_send_channel(
+    ws_sender: futures_util::stream::SplitSink<WebSocket, Message>,
+) -> OutBoundChannel {
+    let (sender, receiver) = mpsc::unbounded_channel();
+    let rx = UnboundedReceiverStream::new(receiver);
+
+    tokio::task::spawn(rx.forward(ws_sender).map(|result| {
+        if let Err(e) = result {
+            log::error!("websocket send error: {}", e);
+        }
+    }));
+
+    sender
+}
+
+async fn send_welcome(out: &OutBoundChannel) -> usize {
+    unimplemented!()
 }
