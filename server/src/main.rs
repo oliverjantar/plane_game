@@ -1,5 +1,5 @@
 use futures_util::{FutureExt, StreamExt};
-use messages::{ClientMessage, RemoteState, ServerMessage};
+use shared::messages::{ClientMessage, RemoteState, ServerMessage};
 use std::{
     collections::HashMap,
     sync::{
@@ -13,8 +13,6 @@ use warp::{
     ws::{Message, WebSocket},
     Filter,
 };
-
-mod messages;
 
 type OutBoundChannel = mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>;
 

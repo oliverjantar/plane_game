@@ -1,9 +1,25 @@
+mod ws;
+
 use macroquad::prelude::*;
+use shared::messages::ServerMessage;
+use ws::Connection;
 
 #[macroquad::main("game")]
 async fn main() {
+    let mut connection = Connection::new();
+    connection.connect("ws://localhost:3030/game");
+
     let mut game = Game::new().await;
     loop {
+        if let Some(msg) = connection.poll() {
+            if let ServerMessage::Welcome(welcome_msg) =
+                serde_json::from_slice::<ServerMessage>(msg.as_slice())
+                    .expect("deserialization failed")
+            {
+                println!("Welcome {:?}", welcome_msg);
+            }
+        }
+
         game.update();
         game.draw();
         if game.quit {
