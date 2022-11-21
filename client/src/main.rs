@@ -12,12 +12,9 @@ async fn main() {
     let mut game = Game::new().await;
     loop {
         if let Some(msg) = connection.poll() {
-            if let ServerMessage::Welcome(welcome_msg) =
-                serde_json::from_slice::<ServerMessage>(msg.as_slice())
-                    .expect("deserialization failed")
-            {
-                println!("Welcome {:?}", welcome_msg);
-            }
+            let msg: ServerMessage =
+                serde_json::from_slice(msg.as_slice()).expect("deserialization failed");
+            game.handle_message(msg);
         }
 
         game.update();
@@ -39,14 +36,30 @@ impl Game {
     pub async fn new() -> Self {
         let texture = load_texture("assets/plane.png").await.unwrap();
         Self {
-            quit: false,
             player_state: PlayerState {
+                id: 0,
                 position: Vec2::new(100f32, 100f32),
                 rotation: 0f32,
             },
             texture,
+            quit: false,
         }
     }
+
+    pub fn handle_message(&mut self, msg: ServerMessage) {
+        match msg {
+            ServerMessage::Welcome(id) => {
+                self.player_state.id = id;
+            }
+            ServerMessage::GoodBye(_) => {
+                unimplemented!();
+            }
+            ServerMessage::Update(_) => {
+                unimplemented!();
+            }
+        }
+    }
+
     pub fn update(&mut self) {
         if is_key_down(KeyCode::Escape) {
             self.quit = true;
@@ -118,7 +131,9 @@ impl Game {
     }
 }
 
+#[derive(Default)]
 pub struct PlayerState {
+    pub id: usize,
     pub position: Vec2,
     pub rotation: f32,
 }
