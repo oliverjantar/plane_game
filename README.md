@@ -1,7 +1,10 @@
 Following a book <b>Multiplayer Game Development IN RUST</b> by <b>Stephan Dilly and Lyon Beckers</b>
 
-So far you can fly around the screen with a plane just by starting a client.
+Multiple clients can connect to a server and fly with a plane.
 
-Server with a multiplayer is a work in progress... 
+Just go to /client or /server and run command `cargo run`
+
+More functionalities tba ;)
+
 
 ![Alt text](/screen.png?raw=true "screenshot")
