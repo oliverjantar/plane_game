@@ -1,4 +1,4 @@
-use std::net::{SocketAddr, TcpStream};
+use std::net::TcpStream;
 use tungstenite::{client::connect, stream::MaybeTlsStream, Message, WebSocket};
 
 pub struct Connection {
@@ -28,5 +28,11 @@ impl Connection {
             }
         }
         None
+    }
+
+    pub fn send(&mut self, msg: Vec<u8>) {
+        if let Some(socket) = &mut self.socket {
+            socket.write_message(Message::Binary(msg)).unwrap();
+        }
     }
 }

@@ -1,8 +1,12 @@
 mod ws;
 
+use crate::glam::Vec2;
 use macroquad::prelude::*;
-use shared::messages::ServerMessage;
+use shared::messages::{ClientMessage, RemoteState, ServerMessage, State};
 use ws::Connection;
+
+const PLANE_WIDTH: f32 = 32.;
+const PLANE_HEIGHT: f32 = 32.;
 
 #[macroquad::main("game")]
 async fn main() {
@@ -11,6 +15,13 @@ async fn main() {
 
     let mut game = Game::new().await;
     loop {
+        let state = ClientMessage::State(State {
+            pos: game.player_state.position,
+            r: game.player_state.rotation,
+        });
+
+        client_send(&state, &mut connection);
+
         if let Some(msg) = connection.poll() {
             let msg: ServerMessage =
                 serde_json::from_slice(msg.as_slice()).expect("deserialization failed");
@@ -18,31 +29,36 @@ async fn main() {
         }
 
         game.update();
+
         game.draw();
+
         if game.quit {
             return;
         }
+
         next_frame().await
     }
 }
 
 pub struct Game {
     pub quit: bool,
-    pub player_state: PlayerState,
+    pub player_state: RemoteState,
     pub texture: Texture2D,
+    pub remote_states: Vec<RemoteState>,
 }
 
 impl Game {
     pub async fn new() -> Self {
-        let texture = load_texture("assets/plane.png").await.unwrap();
+        let texture = load_texture("assets/planes.png").await.unwrap();
         Self {
-            player_state: PlayerState {
+            player_state: RemoteState {
                 id: 0,
                 position: Vec2::new(100f32, 100f32),
                 rotation: 0f32,
             },
             texture,
             quit: false,
+            remote_states: Vec::new(),
         }
     }
 
@@ -51,11 +67,11 @@ impl Game {
             ServerMessage::Welcome(id) => {
                 self.player_state.id = id;
             }
-            ServerMessage::GoodBye(_) => {
-                unimplemented!();
+            ServerMessage::GoodBye(id) => {
+                self.remote_states.retain(|s| s.id != id);
             }
-            ServerMessage::Update(_) => {
-                unimplemented!();
+            ServerMessage::Update(remote_states) => {
+                self.remote_states = remote_states;
             }
         }
     }
@@ -77,15 +93,19 @@ impl Game {
 
         self.player_state.position += Self::vec2_from_angle(self.player_state.rotation) * SPEED;
 
+        for state in &mut self.remote_states {
+            state.position += Self::vec2_from_angle(state.rotation) * SPEED;
+        }
+
         if self.player_state.position.x > screen_width() {
-            self.player_state.position.x = -self.texture.width();
-        } else if self.player_state.position.x < -self.texture.width() {
+            self.player_state.position.x = -PLANE_WIDTH;
+        } else if self.player_state.position.x < -PLANE_WIDTH {
             self.player_state.position.x = screen_width();
         }
 
         if self.player_state.position.y > screen_height() {
-            self.player_state.position.y = -self.texture.height();
-        } else if self.player_state.position.y < -self.texture.height() {
+            self.player_state.position.y = -PLANE_HEIGHT;
+        } else if self.player_state.position.y < -PLANE_HEIGHT {
             self.player_state.position.y = screen_height();
         }
     }
@@ -103,18 +123,24 @@ impl Game {
         //     BLACK,
         // );
 
-        draw_texture_ex(
-            self.texture,
-            self.player_state.position.x,
-            self.player_state.position.y,
-            WHITE,
-            DrawTextureParams {
-                rotation: self.player_state.rotation,
-                ..Default::default()
-            },
-        );
+        // draw_texture_ex(
+        //     self.texture,
+        //     self.player_state.position.x,
+        //     self.player_state.position.y,
+        //     WHITE,
+        //     DrawTextureParams {
+        //         rotation: self.player_state.rotation,
+        //         ..Default::default()
+        //     },
+        // );
 
         Self::draw_box(Vec2::new(400f32, 200f32), Vec2::new(50f32, 20f32));
+
+        self.draw_plane(&self.player_state);
+
+        for state in &self.remote_states {
+            self.draw_plane(state);
+        }
     }
 
     fn draw_box(pos: Vec2, size: Vec2) {
@@ -129,6 +155,30 @@ impl Game {
         let angle = angle - std::f32::consts::FRAC_PI_2;
         Vec2::new(angle.cos(), angle.sin())
     }
+
+    fn draw_plane(&self, state: &RemoteState) {
+        let cols = (self.texture.width() / PLANE_WIDTH).floor() as usize;
+        let index = state.id % 10;
+        let tx_x = index % cols;
+        let tx_y = index / cols;
+
+        draw_texture_ex(
+            self.texture,
+            state.position.x,
+            state.position.y,
+            WHITE,
+            DrawTextureParams {
+                source: Some(Rect::new(
+                    tx_x as f32 * PLANE_WIDTH,
+                    tx_y as f32 * PLANE_HEIGHT,
+                    PLANE_WIDTH,
+                    PLANE_HEIGHT,
+                )),
+                rotation: state.rotation,
+                ..Default::default()
+            },
+        )
+    }
 }
 
 #[derive(Default)]
@@ -136,4 +186,9 @@ pub struct PlayerState {
     pub id: usize,
     pub position: Vec2,
     pub rotation: f32,
+}
+
+pub fn client_send(msg: &ClientMessage, connection: &mut Connection) {
+    let bytes = serde_json::to_vec(msg).expect("serialization failed");
+    connection.send(bytes);
 }
