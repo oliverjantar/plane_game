@@ -11,11 +11,17 @@ impl Connection {
     }
 
     pub fn connect(&mut self, url: &str) {
-        if let Ok((mut socket, _)) = connect(url) {
-            if let MaybeTlsStream::Plain(s) = socket.get_mut() {
-                s.set_nonblocking(true).unwrap();
+        match connect(url) {
+            Ok((mut socket, _)) => {
+                if let MaybeTlsStream::Plain(s) = socket.get_mut() {
+                    s.set_nonblocking(true).unwrap();
+                }
+                self.socket = Some(socket);
             }
-            self.socket = Some(socket);
+            Err(err) => {
+                log::error!("Failed to connect: {}, retrying...", err);
+                self.connect(url);
+            }
         }
     }
 
@@ -39,15 +45,5 @@ impl Connection {
         socket.write_message(Message::Binary(msg))?;
 
         Ok(())
-
-        // match &mut self.socket {
-        //     Some(socket) => {
-        //         socket.write_message(Message::Binary(msg))?;
-        //     }
-        //     None => {
-        //         println!("No socket connection is established!");
-        //     }
-        // }
-        // Ok(())
     }
 }
