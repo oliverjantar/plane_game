@@ -1,8 +1,10 @@
+mod tcpstream;
 mod ws;
 
 use crate::glam::Vec2;
 use macroquad::prelude::*;
 use shared::messages::{ClientMessage, RemoteState, ServerMessage, State};
+use std::io;
 use ws::Connection;
 
 const PLANE_WIDTH: f32 = 32.;
@@ -196,5 +198,21 @@ pub fn client_send(msg: &ClientMessage, connection: &mut Connection) {
     let bytes = serde_json::to_vec(msg).expect("serialization failed");
     if let Err(err) = connection.send(bytes) {
         log::error!("Failed to send msg: {}", err);
+
+        if err.is::<tungstenite::Error>() {
+            let err_type: Box<tungstenite::Error> = err.downcast::<tungstenite::Error>().unwrap();
+
+            match *err_type {
+                tungstenite::Error::Io(err) => {
+                    if let io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionAborted =
+                        err.kind()
+                    {
+                        log::error!("Connection lost, attempting to reconnect");
+                        connection.connect("ws://localhost:3030/game");
+                    }
+                }
+                _ => (),
+            }
+        }
     }
 }
