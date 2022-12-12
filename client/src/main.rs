@@ -2,9 +2,9 @@ mod tcpstream;
 mod ws;
 
 use crate::glam::Vec2;
-use macroquad::prelude::*;
+use macroquad::prelude::{coroutines::start_coroutine, *};
 use shared::messages::{ClientMessage, RemoteState, ServerMessage, State};
-use std::io;
+use std::{io, sync::Arc};
 use ws::Connection;
 
 const PLANE_WIDTH: f32 = 32.;
@@ -14,27 +14,28 @@ const PLANE_HEIGHT: f32 = 32.;
 async fn main() {
     pretty_env_logger::init();
 
-    let mut connection = Connection::new();
-    connection.connect("ws://localhost:3030/game");
-
     let mut game = Game::new().await;
+
+    let connection = Arc::new(Connection::new());
+
+    let connection_coroutine = start_coroutine(client_connect(
+        connection.clone(),
+        "ws://localhost:3030/game",
+    ));
+
     loop {
-        let state = ClientMessage::State(State {
-            pos: game.player_state.position,
-            r: game.player_state.rotation,
-        });
+        if connection_coroutine.is_done() {
+            let state = ClientMessage::State(State {
+                pos: game.player_state.position,
+                r: game.player_state.rotation,
+            });
 
-        client_send(&state, &mut connection);
+            client_send(&state, connection.clone());
+            client_receive(&mut game, connection.clone());
 
-        if let Some(msg) = connection.poll() {
-            let msg: ServerMessage =
-                serde_json::from_slice(msg.as_slice()).expect("deserialization failed");
-            game.handle_message(msg);
+            game.update();
+            game.draw();
         }
-
-        game.update();
-
-        game.draw();
 
         if game.quit {
             return;
@@ -194,25 +195,46 @@ pub struct PlayerState {
     pub rotation: f32,
 }
 
-pub fn client_send(msg: &ClientMessage, connection: &mut Connection) {
+pub async fn client_connect(connection: Arc<Connection>, url: &str) {
+    if let Err(err) = connection.connect(url).await {
+        log::error!("Failed to connect to {}: {}", url, err);
+    }
+}
+
+pub fn client_send(msg: &ClientMessage, connection: Arc<Connection>) {
     let bytes = serde_json::to_vec(msg).expect("serialization failed");
     if let Err(err) = connection.send(bytes) {
         log::error!("Failed to send msg: {}", err);
 
-        if err.is::<tungstenite::Error>() {
-            let err_type: Box<tungstenite::Error> = err.downcast::<tungstenite::Error>().unwrap();
-
-            match *err_type {
-                tungstenite::Error::Io(err) => {
-                    if let io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionAborted =
-                        err.kind()
-                    {
-                        log::error!("Connection lost, attempting to reconnect");
-                        connection.connect("ws://localhost:3030/game");
-                    }
-                }
-                _ => (),
+        if let tungstenite::Error::Io(err) = err {
+            if let io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionAborted = err.kind() {
+                log::error!("Connection lost, attempting to reconnect");
+                connection.connect("ws://localhost:3030/game");
             }
         }
+        //Error handling
+        // if err.is::<tungstenite::Error>() {
+        //     let err_type: Box<tungstenite::Error> = err.downcast::<tungstenite::Error>().unwrap();
+
+        //     match *err_type {
+        //         tungstenite::Error::Io(err) => {
+        //             if let io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionAborted =
+        //                 err.kind()
+        //             {
+        //                 log::error!("Connection lost, attempting to reconnect");
+        //                 connection.connect("ws://localhost:3030/game");
+        //             }
+        //         }
+        //         _ => (),
+        //     }
+        // }
+    }
+}
+
+pub fn client_receive(game: &mut Game, connection: Arc<Connection>) {
+    if let Some(msg) = connection.poll() {
+        let msg: ServerMessage =
+            serde_json::from_slice(msg.as_slice()).expect("deserialization failed");
+        game.handle_message(msg);
     }
 }
