@@ -73,7 +73,7 @@ impl Future for ConnectFuture {
     }
 }
 
-pub async fn create_tcpstream_connection(address: SocketAddr) -> io::Result<ConnectFuture> {
+pub fn create_tcpstream_connection(address: SocketAddr) -> io::Result<ConnectFuture> {
     let poll = mio::Poll::new()?;
     let events = mio::Events::with_capacity(128);
 

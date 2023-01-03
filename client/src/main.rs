@@ -209,7 +209,11 @@ pub fn client_send(msg: &ClientMessage, connection: Arc<Connection>) {
         if let tungstenite::Error::Io(err) = err {
             if let io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionAborted = err.kind() {
                 log::error!("Connection lost, attempting to reconnect");
-                connection.connect("ws://localhost:3030/game");
+                connection.restart();
+                start_coroutine(client_connect(
+                    connection.clone(),
+                    "ws://localhost:3030/game",
+                ));
             }
         }
         //Error handling

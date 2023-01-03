@@ -33,7 +33,7 @@ impl Connection {
 
         let addresses = (host, port).to_socket_addrs()?;
         let stream_futures = addresses
-            .map(|address| create_tcpstream_connection(address))
+            .map(|address| create_tcpstream_connection(address)) 
             .collect::<io::Result<Vec<ConnectFuture>>>()?;
 
         if let Err(err) = self.connect_internal(stream_futures, url).await {
@@ -108,6 +108,11 @@ impl Connection {
         }
 
         Ok(())
+    }
+
+    pub fn restart(&self) {
+        let mut socket_lock = self.socket.lock().unwrap();
+        *socket_lock = None;
     }
 }
 
