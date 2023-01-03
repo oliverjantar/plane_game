@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic)]
+
 mod tcpstream;
 mod ws;
 
@@ -30,8 +32,8 @@ async fn main() {
                 r: game.player_state.rotation,
             });
 
-            client_send(&state, connection.clone());
-            client_receive(&mut game, connection.clone());
+            client_send(&state, &connection);
+            client_receive(&mut game, &connection);
 
             game.update();
             game.draw();
@@ -41,7 +43,7 @@ async fn main() {
             return;
         }
 
-        next_frame().await
+        next_frame().await;
     }
 }
 
@@ -84,12 +86,12 @@ impl Game {
     }
 
     pub fn update(&mut self) {
+        const ROT_SPEED: f32 = 0.015;
+        const SPEED: f32 = 0.6;
+
         if is_key_down(KeyCode::Escape) {
             self.quit = true;
         }
-
-        const ROT_SPEED: f32 = 0.015;
-        const SPEED: f32 = 0.6;
 
         if is_key_down(KeyCode::Right) {
             self.player_state.rotation += ROT_SPEED;
@@ -184,7 +186,7 @@ impl Game {
                 rotation: state.rotation,
                 ..Default::default()
             },
-        )
+        );
     }
 }
 
@@ -201,7 +203,7 @@ pub async fn client_connect(connection: Arc<Connection>, url: &str) {
     }
 }
 
-pub fn client_send(msg: &ClientMessage, connection: Arc<Connection>) {
+pub fn client_send(msg: &ClientMessage, connection: &Arc<Connection>) {
     let bytes = serde_json::to_vec(msg).expect("serialization failed");
     if let Err(err) = connection.send(bytes) {
         log::error!("Failed to send msg: {}", err);
@@ -235,7 +237,7 @@ pub fn client_send(msg: &ClientMessage, connection: Arc<Connection>) {
     }
 }
 
-pub fn client_receive(game: &mut Game, connection: Arc<Connection>) {
+pub fn client_receive(game: &mut Game, connection: &Arc<Connection>) {
     if let Some(msg) = connection.poll() {
         let msg: ServerMessage =
             serde_json::from_slice(msg.as_slice()).expect("deserialization failed");
