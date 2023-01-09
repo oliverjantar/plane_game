@@ -1,4 +1,4 @@
-name: CI
+name: build
 
 on:
   push:
@@ -16,6 +16,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    
+    
+    - name: Install build-essentials
+      run: sudo apt get install build-essential
+        
     - uses: actions-rs/toolchain@v1
       with:
           toolchain: stable
