@@ -19,7 +19,7 @@ jobs:
     
     
     - name: Install build-essentials
-      run: sudo apt get install build-essential
+      run: sudo apt-get install build-essential
         
     - uses: actions-rs/toolchain@v1
       with:
