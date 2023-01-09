@@ -1,7 +1,3 @@
-Currently not buildable, work in progress
-
-
-
 Following a book <b>Multiplayer Game Development IN RUST</b> by <b>Stephan Dilly and Lyon Beckers</b>
 
 Multiple clients can connect to a server and fly with a plane.
