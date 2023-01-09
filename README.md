@@ -1,3 +1,5 @@
+[![Build](https://github.com/oliverjantar/plane_game/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/oliverjantar/plane_game/actions/workflows/rust.yml)
+
 Following a book <b>Multiplayer Game Development IN RUST</b> by <b>Stephan Dilly and Lyon Beckers</b>
 
 Multiple clients can connect to a server and fly with a plane.
