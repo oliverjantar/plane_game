@@ -9,6 +9,9 @@ Just go to /client or /server and run command `cargo run`
 More functionalities tba ;)
 
 
+Lib dependencies:
+apt get -y install libasound2-dev
+
 
 
 ![Alt text](/screen.png?raw=true "screenshot")
